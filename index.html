@@ -29,7 +29,7 @@
     }
 
     .area {
-  fill: steelblue;
+  /* fill: steelblue; */
   clip-path: url(#clip);
 }
 
@@ -167,7 +167,7 @@
             cleanData.push(d);
           }
         });
-        draw_chart(JSON.parse(JSON.stringify(cleanData)), "size", "Timestamp", "Size");
+        draw_chart(JSON.parse(JSON.stringify(cleanData)), "size", "Timestamp", "Size", "Action");
         initializeTable("data_table");
 
         $('#data_table').DataTable( {

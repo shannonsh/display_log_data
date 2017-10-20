@@ -90,12 +90,47 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
     x2.domain(x.domain());
     y2.domain(y.domain());
 
-    // dataNest.forEach(function(d, i) {})
+    var alpha = 0.5;
+    var schemeCategory10 = function(alpha) {
+        return ["rgba(31,119,180," + alpha + ")",
+        "rgba(255,127,14," + alpha + ")",
+        "rgba(44,160,44," + alpha + ")",
+        "rgba(214,39,40," + alpha + ")",
+        "rgba(148,103,189," + alpha + ")",
+        "rgba(140,86,75," + alpha + ")",
+        "rgba(227,119,194," + alpha + ")",
+        "rgba(127,127,127," + alpha + ")",
+        "rgba(188,189,34," + alpha + ")",
+        "rgba(23,190,207," + alpha + ")"];
+    }
+
+    var color = d3.scaleOrdinal(schemeCategory10(1));
+    var colorAlpha = d3.scaleOrdinal(schemeCategory10(alpha));
+    dataNest.forEach(function(d, i) {
+
     focus.append("path")
-        .datum(sampledData)
+        .datum(d.values)
         .attr("class", "area")
+        .attr("stroke", function() {
+            return d.color = color(d.key);
+        })
+        .attr("fill", function() {
+            return d.color = colorAlpha(d.key);
+        })
         .attr("d", area);
 
+    context.append("path")
+        .datum(d.values)
+        .attr("class", "area")
+        .attr("stroke", function() {
+            return d.color = color(d.key);
+        })
+        .attr("fill", function() {
+            return d.color = colorAlpha(d.key);
+        })
+        .attr("d", area2);
+
+    })
     focus.append("g")
         .attr("class", "axis axis--x")
         .attr("transform", "translate(0," + height + ")")
@@ -104,11 +139,6 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
     focus.append("g")
         .attr("class", "axis axis--y")
         .call(yAxis);
-
-    context.append("path")
-        .datum(sampledData)
-        .attr("class", "area")
-        .attr("d", area2);
 
     context.append("g")
         .attr("class", "axis axis--x")
@@ -145,7 +175,7 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         if (d3.event.sourceEvent && d3.event.sourceEvent.type === "zoom") return; // ignore brush-by-zoom
         var s = d3.event.selection || x2.range();
         x.domain(s.map(x2.invert, x2));
-        focus.select(".area").attr("d", area);
+        focus.selectAll(".area").attr("d", area);
         focus.select(".axis--x").call(xAxis);
         svg.select(".zoom").call(zoom.transform, d3.zoomIdentity
             .scale(width / (s[1] - s[0]))
@@ -156,7 +186,7 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         if (d3.event.sourceEvent && d3.event.sourceEvent.type === "brush") return; // ignore zoom-by-brush
         var t = d3.event.transform;
         x.domain(t.rescaleX(x2).domain());
-        focus.select(".area").attr("d", area);
+        focus.selectAll(".area").attr("d", area);
         focus.select(".axis--x").call(xAxis);
         context.select(".brush").call(brush.move, x.range().map(t.invertX, t));
     }
