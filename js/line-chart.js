@@ -1,11 +1,33 @@
-function draw_chart(data, svgID, timeProperty, valueProperty) {
+// many thanks to Bostock for providing excellent examples:
+// https://bl.ocks.org/mbostock/34f08d5e11952a80609169b7917d4172
+function draw_chart(data, svgID, timeProperty, valueProperty, event) {
     var time = timeProperty;
     var value = valueProperty;
+    // parse time stamps into date
+    // due to limitations of the Javascript Date type,
+    // precision is in milliseconds (not microseconds)
     var parseDate = d3.timeParse("%H:%M:%S.%f%Z");
     data.forEach(function(d) {
         d[time] = parseDate(d[time]);
+        d[value] = +d[value];
         return d;
     })
+
+    // downsample data for performance gain
+    const sampler = fc.largestTriangleOneBucket();
+
+    sampler.x(function(d) {return d[timeProperty]})
+           .y(function(d) {return d[valueProperty]});
+    var bucketSize = data.length/10000 < 1 ? 1 : Math.pow(10, Math.log(data.length/10000));
+    sampler.bucketSize(bucketSize);
+    console.log(bucketSize);
+    
+    var sampledData = sampler(data);
+    
+    var dataNest = d3.nest()
+        .key(function(d) {return d[event];})
+        .entries(sampledData);
+
 
     var svg = d3.select("#" + svgID),
         margin = { top: 20, right: 20, bottom: 110, left: 40 },
@@ -14,11 +36,10 @@ function draw_chart(data, svgID, timeProperty, valueProperty) {
         height = +svg.attr("height") - margin.top - margin.bottom,
         height2 = +svg.attr("height") - margin2.top - margin2.bottom;
 
-    // disable scroll when interacting with graph
-    var body = document.querySelector("body");
-    
-    
 
+
+    // create functions for mapping time and values to 
+    // x and y values for top and bottom graph
     var x = d3.scaleTime().range([0, width]),
         x2 = d3.scaleTime().range([0, width]),
         y = d3.scaleLinear().range([height, 0]),
@@ -64,13 +85,14 @@ function draw_chart(data, svgID, timeProperty, valueProperty) {
         .attr("class", "context")
         .attr("transform", "translate(" + margin2.left + "," + margin2.top + ")");
 
-    x.domain(d3.extent(data, function (d) { return d[time]; }));
-    y.domain([0, d3.max(data, function (d) { return +d[value]; })]);
+    x.domain(d3.extent(sampledData, function (d) { return d[time]; }));
+    y.domain([0, d3.max(sampledData, function (d) { return +d[value]; })]);
     x2.domain(x.domain());
     y2.domain(y.domain());
 
+    // dataNest.forEach(function(d, i) {})
     focus.append("path")
-        .datum(data)
+        .datum(sampledData)
         .attr("class", "area")
         .attr("d", area);
 
@@ -84,7 +106,7 @@ function draw_chart(data, svgID, timeProperty, valueProperty) {
         .call(yAxis);
 
     context.append("path")
-        .datum(data)
+        .datum(sampledData)
         .attr("class", "area")
         .attr("d", area2);
 
@@ -106,17 +128,19 @@ function draw_chart(data, svgID, timeProperty, valueProperty) {
         .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
         .call(zoom);
 
-zoomRect.on("mousenter", function() {
-        console.log("entering");
-        body.style.overflow = "hidden";
+    zoomRect.on("mousenter", function () {
+        // console.log("entering");
+        // body.style.overflow = "hidden";
     })
     .on("wheel", function() {
         d3.event.preventDefault();
     })
     .on("mouseout", function() {
-        console.log("leaving");
+        // console.log("leaving");
         // body.style.overflow = "auto";
     })
+    .on('mousemove', displayTooltip)
+
     function brushed() {
         if (d3.event.sourceEvent && d3.event.sourceEvent.type === "zoom") return; // ignore brush-by-zoom
         var s = d3.event.selection || x2.range();
@@ -135,6 +159,27 @@ zoomRect.on("mousenter", function() {
         focus.select(".area").attr("d", area);
         focus.select(".axis--x").call(xAxis);
         context.select(".brush").call(brush.move, x.range().map(t.invertX, t));
+    }
+
+    var circle = svg.append('circle')
+    .attr('r', 5);
+
+    var bisector = d3.bisector(function(d){ return d[time]; }).left;
+    function displayTooltip() {
+        // reference: https://www.pshrmn.com/tutorials/d3/mouse/
+        var coordinates = d3.mouse(this);
+        var domainX = x.invert(coordinates[0]);
+        
+        var pos = bisector(sampledData, domainX);
+        // get the closest smaller and larger values in the data array
+        var smaller = sampledData[pos - 1];
+        var larger = sampledData[pos];
+        // figure out which one is closer to the domain value
+        var closest = domainX - smaller[time] < larger[time] - domainX ? smaller : larger;
+
+        circle
+        .attr('cx', x(closest[time]))
+        .attr('cy', y(closest[value]));
     }
 
     // svg.select(".area")
