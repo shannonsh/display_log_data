@@ -164,6 +164,7 @@
           if (isNaN(d["Size"]) || errorNums.includes(+d["Size"])) {
             errorData.push(d);
           } else {
+            d["Size"] = +d["Size"];
             cleanData.push(d);
           }
         });
@@ -172,6 +173,9 @@
 
         $('#data_table').DataTable( {
           data: logData,
+          "columnDefs": [
+              { "type": "num", "targets": 2 }
+          ],
           columns: [
             {data: "Timestamp"},
             {data: "Action"},

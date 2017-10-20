@@ -40,10 +40,16 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
 
     // create functions for mapping time and values to 
     // x and y values for top and bottom graph
-    var x = d3.scaleTime().range([0, width]),
+    var x = d3.scaleTime().range([0, width])
         x2 = d3.scaleTime().range([0, width]),
         y = d3.scaleLinear().range([height, 0]),
         y2 = d3.scaleLinear().range([height2, 0]);
+        
+    x.domain([d3.min(sampledData, function (d) { return d[time]; }), d3.max(sampledData, function (d) { return d[time]; })]),
+    // x.domain(d3.extent(sampledData, function (d) { return d[time]; }));
+    y.domain([d3.min(sampledData, function (d) { return +d[value]; }), d3.max(sampledData, function (d) { return +d[value]; })]);
+    x2.domain(x.domain());
+    y2.domain(y.domain());
 
     var xAxis = d3.axisBottom(x),
         xAxis2 = d3.axisBottom(x2),
@@ -59,11 +65,11 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         .extent([[0, 0], [width, height]])
         .on("zoom", zoomed);
 
-    var area = d3.area()
-        .curve(d3.curveStepAfter)
-        .x(function (d) { return x(d[time]); })
-        .y0(height)
-        .y1(function (d) { return y(d[value]); });
+    // var area = d3.area()
+    //     .curve(d3.curveStepAfter)
+    //     .x(function (d) { return x(d[time]); })
+    //     .y0(height)
+    //     .y1(function (d) { return y(d[value]); });
 
     var area2 = d3.area()
         .curve(d3.curveStepAfter)
@@ -85,11 +91,28 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         .attr("class", "context")
         .attr("transform", "translate(" + margin2.left + "," + margin2.top + ")");
 
-    x.domain(d3.extent(sampledData, function (d) { return d[time]; }));
-    y.domain([0, d3.max(sampledData, function (d) { return +d[value]; })]);
-    x2.domain(x.domain());
-    y2.domain(y.domain());
+    var zoomRect = svg.append("rect")
+        .attr("class", "zoom")
+        .attr("width", width)
+        .attr("height", height)
+        .attr("fill", "transparent")
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+        .call(zoom);
 
+    zoomRect.on("mousenter", function () {
+        // console.log("entering");
+        // body.style.overflow = "hidden";
+    })
+    .on("wheel", function() {
+        d3.event.preventDefault();
+    })
+    .on("mouseout", function() {
+        // console.log("leaving");
+        // body.style.overflow = "auto";
+    })
+    // .on('mousemove', displayTooltip)
+
+    
     var alpha = 0.5;
     var schemeCategory10 = function(alpha) {
         return ["rgba(31,119,180," + alpha + ")",
@@ -108,16 +131,22 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
     var colorAlpha = d3.scaleOrdinal(schemeCategory10(alpha));
     dataNest.forEach(function(d, i) {
 
-    focus.append("path")
-        .datum(d.values)
-        .attr("class", "area")
-        .attr("stroke", function() {
-            return d.color = color(d.key);
-        })
-        .attr("fill", function() {
-            return d.color = colorAlpha(d.key);
-        })
-        .attr("d", area);
+    focus.selectAll(".bar")
+        .data(d.values)
+        .enter().append("rect")
+            .attr("class", "bar " + d.key)
+            .attr("x", function(d) { 
+                return x(d[time]) })
+            .attr("y", function(d) { 
+                return y(d[value]); })
+            .attr("width", 1)
+            .attr("height", function(d) { return height - y(d[value]); })
+            .attr("stroke", function() {
+                return d.color = color(d.key);
+            })
+            .attr("fill", function() {
+                return d.color = colorAlpha(d.key);
+            });
 
     context.append("path")
         .datum(d.values)
@@ -150,32 +179,15 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         .call(brush)
         .call(brush.move, x.range());
 
-    var zoomRect = svg.append("rect")
-        .attr("class", "zoom")
-        .attr("width", width)
-        .attr("height", height)
-        .attr("fill", "transparent")
-        .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
-        .call(zoom);
-
-    zoomRect.on("mousenter", function () {
-        // console.log("entering");
-        // body.style.overflow = "hidden";
-    })
-    .on("wheel", function() {
-        d3.event.preventDefault();
-    })
-    .on("mouseout", function() {
-        // console.log("leaving");
-        // body.style.overflow = "auto";
-    })
-    .on('mousemove', displayTooltip)
-
     function brushed() {
         if (d3.event.sourceEvent && d3.event.sourceEvent.type === "zoom") return; // ignore brush-by-zoom
         var s = d3.event.selection || x2.range();
-        x.domain(s.map(x2.invert, x2));
-        focus.selectAll(".area").attr("d", area);
+        // x.domain(s.map(x2.invert, x2));
+        dataNest.forEach(function(d, i) {
+            focus.selectAll(".bar." + d.key)
+                .attr("x", function(d) { return x(d[time]) })
+                .attr("y", function(d) { return y(d[value]); })
+        });
         focus.select(".axis--x").call(xAxis);
         svg.select(".zoom").call(zoom.transform, d3.zoomIdentity
             .scale(width / (s[1] - s[0]))
@@ -186,31 +198,35 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         if (d3.event.sourceEvent && d3.event.sourceEvent.type === "brush") return; // ignore zoom-by-brush
         var t = d3.event.transform;
         x.domain(t.rescaleX(x2).domain());
-        focus.selectAll(".area").attr("d", area);
+        dataNest.forEach(function(d, i) {
+            focus.selectAll(".bar." + d.key)
+                .attr("x", function(d) { return x(d[time]) })
+                .attr("y", function(d) { return y(d[value]); })
+        });
         focus.select(".axis--x").call(xAxis);
         context.select(".brush").call(brush.move, x.range().map(t.invertX, t));
     }
 
-    var circle = svg.append('circle')
-    .attr('r', 5);
+    // var circle = svg.append('circle')
+    // .attr('r', 5);
 
-    var bisector = d3.bisector(function(d){ return d[time]; }).left;
-    function displayTooltip() {
-        // reference: https://www.pshrmn.com/tutorials/d3/mouse/
-        var coordinates = d3.mouse(this);
-        var domainX = x.invert(coordinates[0]);
+    // var bisector = d3.bisector(function(d){ return d[time]; }).left;
+    // function displayTooltip() {
+    //     // reference: https://www.pshrmn.com/tutorials/d3/mouse/
+    //     var coordinates = d3.mouse(this);
+    //     var domainX = x.invert(coordinates[0]);
         
-        var pos = bisector(sampledData, domainX);
-        // get the closest smaller and larger values in the data array
-        var smaller = sampledData[pos - 1];
-        var larger = sampledData[pos];
-        // figure out which one is closer to the domain value
-        var closest = domainX - smaller[time] < larger[time] - domainX ? smaller : larger;
+    //     var pos = bisector(sampledData, domainX);
+    //     // get the closest smaller and larger values in the data array
+    //     var smaller = sampledData[pos - 1];
+    //     var larger = sampledData[pos];
+    //     // figure out which one is closer to the domain value
+    //     var closest = domainX - smaller[time] < larger[time] - domainX ? smaller : larger;
 
-        circle
-        .attr('cx', x(closest[time]))
-        .attr('cy', y(closest[value]));
-    }
+    //     circle
+    //     .attr('cx', x(closest[time]))
+    //     .attr('cy', y(closest[value]));
+    // }
 
     // svg.select(".area")
     //     .attr("fill", "steelblue")
