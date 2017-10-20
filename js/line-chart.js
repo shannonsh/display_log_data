@@ -131,9 +131,10 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
     var color = d3.scaleOrdinal(schemeCategory10(1));
     var colorAlpha = d3.scaleOrdinal(schemeCategory10(alpha));
     dataNest.forEach(function(d, i) {
-        var bars = focus.append("g");
-        bars.attr("clip-path", "url(#clip)");
-        bars.selectAll(".bar")
+        var event = focus.append("g")
+            .attr("id", d.key + "-data");
+        event.attr("clip-path", "url(#clip)");
+        event.selectAll(".bar")
             .data(d.values)
             .enter().append("circle")
                 .attr("class", "bar " + d.key)
@@ -144,41 +145,16 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
                 .attr("cx", function(d) { return x(d[time]); })
                 .attr("cy", function(d) { return y(d[value]); })
 
-                // .attr("x", function(d) { 
-                //     return x(d[time]) })
-                // .attr("y", function(d) { 
-                //     return y(d[value]); })
-                // .attr("width", 1)
-                // .attr("height", function(d) { return height - y(d[value]); })
-                // .attr("stroke", function() {
-                //     return d.color = color(d.key);
-                // })
-                // .attr("fill", function() {
-                //     return d.color = colorAlpha(d.key);
-                // });
-
-        var bars = context.append("g");
-        bars.attr("clip-path", "url(#clip)");
-        bars.selectAll(".bar")
+        var event = context.append("g");
+        event.attr("clip-path", "url(#clip)");
+        event.selectAll(".bar")
             .data(d.values)
             .enter().append("circle")
             .attr("class", "barContext " + d.key)
             .attr("r", 3)
             .attr("fill", function () { return colorAlpha(d.key) })
-            .attr("stroke", function() { return color(d.key) })
             .attr("cx", function(d) { return x2(d[time]); })
             .attr("cy", function(d) { return y2(d[value]); })
-        // context.append("path")
-        //     .datum(d.values)
-        //     .attr("class", "area")
-        //     .attr("stroke", function() {
-        //         return d.color = color(d.key);
-        //     })
-        //     .attr("fill", function() {
-        //         return d.color = colorAlpha(d.key);
-        //     })
-        //     .attr("d", area2);
-
     })
     focus.append("g")
         .attr("class", "axis axis--x")
@@ -195,11 +171,37 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         .text("Size (bytes)");
 
         // legend
-    focus.append("text")
-        .attr("x", width + margin.right)
-        .attr("dy", "1em")
-        .attr("text-anchor", "end")
-        .text("Placeholder legend");
+    var legend = focus.append("g")
+        .attr("transform", "translate(" + (width + margin.right) + ", 5)")
+        // .attr("x", width + margin.right)
+        // .attr("dy", "1em")
+    
+    dataNest.forEach(function (event, i) {
+        var pair = legend.append("g")
+        var label = pair.append("text")
+            .attr("text-anchor", "end")
+            .text(event.key);
+        var dim = label.node().getBBox();
+        pair.append("circle")
+            .attr("transform", "translate(" + (dim.x - 5) + "," + (dim.y/4) + ")")
+            .attr("r", 4)
+            .attr("fill", function () { return colorAlpha(event.key) })
+            .attr("stroke", function () { return color(event.key) })
+        pair.attr("transform", "translate(0," + (-dim.y * i) + ")")
+            .on("click", function () {
+                // from https://bl.ocks.org/d3noob/08af723fe615c08f9536f656b55755b4
+                // Determine if current line is visible 
+                var active   = event.active ? false : true,
+                newOpacity = active ? 0 : 1; 
+                // Hide or show the elements based on the ID
+                d3.select("#" + event.key + "-data")
+                    .transition().duration(100) 
+                    .style("opacity", newOpacity); 
+                this.querySelector("text").setAttribute("opacity", newOpacity + 0.5)
+                // Update whether or not the elements are active
+                event.active = active;
+            })
+    });
 
         // x axis label
     svg.append("text")
