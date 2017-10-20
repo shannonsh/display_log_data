@@ -18,17 +18,25 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
 
     sampler.x(function(d) {return d[timeProperty]})
            .y(function(d) {return d[valueProperty]});
-    var bucketSize = data.length/10000 < 1 ? 1 : Math.pow(10, Math.log(data.length/10000));
-    sampler.bucketSize(bucketSize);
-    console.log(bucketSize);
-    var sampledData = sampler(data);
     
+    var numBuckets = document.body.clientWidth - 1000;
+    var bucketSizes = {};
     // combine events together so each event has its own
     // dataset
-    var dataNest = d3.nest()
+    var dataNestUnsampled = d3.nest()
         .key(function(d) {return d[event];})
-        .entries(sampledData);
-
+        .entries(data);
+    var dataNest = [];
+    for (var i = 0; i < dataNestUnsampled.length; i++) {
+        var eventData = {};
+        eventData.key = dataNestUnsampled[i].key;
+        var bucketSize = Math.max(dataNestUnsampled[i].values.length / numBuckets, 1);
+        // var bucketSize = 1;
+        sampler.bucketSize(bucketSize);
+        console.log(bucketSize);
+        eventData.values = sampler(dataNestUnsampled[i].values);
+        dataNest.push(eventData);
+    }
 
     var svg = d3.select("#" + svgID),
         margin = { top: 20, right: 100, bottom: 110, left: 50 },
@@ -46,9 +54,9 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         y = d3.scaleLinear().range([height, 0]),
         y2 = d3.scaleLinear().range([height2, 0]);
         
-    x.domain([d3.min(sampledData, function (d) { return d[time]; }), d3.max(sampledData, function (d) { return d[time]; })]),
+    x.domain([d3.min(data, function (d) { return d[time]; }), d3.max(data, function (d) { return d[time]; })]),
     // x.domain(d3.extent(sampledData, function (d) { return d[time]; }));
-    y.domain([d3.min(sampledData, function (d) { return +d[value]; }), d3.max(sampledData, function (d) { return +d[value]; })]);
+    y.domain([d3.min(data, function (d) { return +d[value]; }), d3.max(data, function (d) { return +d[value]; })]);
     x2.domain(x.domain());
     y2.domain(y.domain());
 
@@ -65,18 +73,6 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         .translateExtent([[0, 0], [width, height]])
         .extent([[0, 0], [width, height]])
         .on("zoom", zoomed);
-
-    // var area = d3.area()
-    //     .curve(d3.curveStepAfter)
-    //     .x(function (d) { return x(d[time]); })
-    //     .y0(height)
-    //     .y1(function (d) { return y(d[value]); });
-
-    var area2 = d3.area()
-        .curve(d3.curveStepAfter)
-        .x(function (d) { return x2(d[time]); })
-        .y0(height2)
-        .y1(function (d) { return y2(d[value]); });
 
     svg.append("defs").append("clipPath")
         .attr("id", "clip")
@@ -258,6 +254,39 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         });
         focus.select(".axis--x").call(xAxis);
         context.select(".brush").call(brush.move, x.range().map(t.invertX, t));
+        resample(x.range().map(t.invertX, t));
+    }
+
+    var bisector = d3.bisector(function(d) { return d[time]; });
+    function resample(range) {
+        dataNestUnsampled.forEach(function(event, i) {
+            var data = event.values;
+            // Calculate visible data for main chart
+            var visibleData = data.slice(
+                bisector.left(data, x.invert(range[0])),
+                Math.min(data.length, bisector.right(data, x.invert(range[1])))
+            );
+
+            var bucketSize = Math.ceil(visibleData.length / numBuckets);
+            sampler.bucketSize(bucketSize);
+
+            dataNest[i].values = sampler(visibleData);
+
+            focus.select("#" + event.key + "-data").selectAll(".bar")
+                .data(dataNest[i].values)
+                .attr("cx", function (d) { return x(d[time]); })
+                .attr("cy", function (d) { return y(d[value]); })
+        // var container = d3.select(this);
+
+        // container.select('svg.main')
+        //     .datum(visibleData)
+        //     .call(mainChart);
+
+        // container.select('svg.navigator')
+        //     .datum(data.navigatorData)
+        //     .call(navigatorChart);
+
+        })
     }
 
     // var circle = svg.append('circle')
