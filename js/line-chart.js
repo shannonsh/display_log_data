@@ -21,17 +21,18 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
     var bucketSize = data.length/10000 < 1 ? 1 : Math.pow(10, Math.log(data.length/10000));
     sampler.bucketSize(bucketSize);
     console.log(bucketSize);
-    
     var sampledData = sampler(data);
     
+    // combine events together so each event has its own
+    // dataset
     var dataNest = d3.nest()
         .key(function(d) {return d[event];})
         .entries(sampledData);
 
 
     var svg = d3.select("#" + svgID),
-        margin = { top: 20, right: 20, bottom: 110, left: 40 },
-        margin2 = { top: 430, right: 20, bottom: 30, left: 40 },
+        margin = { top: 20, right: 100, bottom: 110, left: 50 },
+        margin2 = { top: 430, right: 100, bottom: 30, left: 50 },
         width = +svg.attr("width") - margin.left - margin.right,
         height = +svg.attr("height") - margin.top - margin.bottom,
         height2 = +svg.attr("height") - margin2.top - margin2.bottom;
@@ -57,7 +58,7 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
 
     var brush = d3.brushX()
         .extent([[0, 0], [width, height2]])
-        .on("brush end", brushed);
+        .on("brush", brushed);
 
     var zoom = d3.zoom()
         .scaleExtent([1, Infinity])
@@ -91,26 +92,26 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         .attr("class", "context")
         .attr("transform", "translate(" + margin2.left + "," + margin2.top + ")");
 
-    var zoomRect = svg.append("rect")
-        .attr("class", "zoom")
-        .attr("width", width)
-        .attr("height", height)
-        .attr("fill", "transparent")
-        .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
-        .call(zoom);
+    // var zoomRect = svg.append("rect")
+    //     .attr("class", "zoom")
+    //     .attr("width", width)
+    //     .attr("height", height)
+    //     .attr("fill", "transparent")
+    //     .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+    //     .call(zoom);
 
-    zoomRect.on("mousenter", function () {
-        // console.log("entering");
-        // body.style.overflow = "hidden";
-    })
-    .on("wheel", function() {
-        d3.event.preventDefault();
-    })
-    .on("mouseout", function() {
-        // console.log("leaving");
-        // body.style.overflow = "auto";
-    })
-    // .on('mousemove', displayTooltip)
+    // zoomRect.on("mousenter", function () {
+    //     // console.log("entering");
+    //     // body.style.overflow = "hidden";
+    // })
+    // .on("wheel", function() {
+    //     d3.event.preventDefault();
+    // })
+    // .on("mouseout", function() {
+    //     // console.log("leaving");
+    //     // body.style.overflow = "auto";
+    // })
+    // // .on('mousemove', displayTooltip)
 
     
     var alpha = 0.5;
@@ -130,40 +131,90 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
     var color = d3.scaleOrdinal(schemeCategory10(1));
     var colorAlpha = d3.scaleOrdinal(schemeCategory10(alpha));
     dataNest.forEach(function(d, i) {
+        var bars = focus.append("g");
+        bars.attr("clip-path", "url(#clip)");
+        bars.selectAll(".bar")
+            .data(d.values)
+            .enter().append("circle")
+                .attr("class", "bar " + d.key)
+                .attr("r", 4)
+                .attr("fill", function () { return colorAlpha(d.key) })
+                .attr("stroke", function() { return color(d.key) })
+                .style("opacity", 0.4)
+                .attr("cx", function(d) { return x(d[time]); })
+                .attr("cy", function(d) { return y(d[value]); })
 
-    focus.selectAll(".bar")
-        .data(d.values)
-        .enter().append("rect")
-            .attr("class", "bar " + d.key)
-            .attr("x", function(d) { 
-                return x(d[time]) })
-            .attr("y", function(d) { 
-                return y(d[value]); })
-            .attr("width", 1)
-            .attr("height", function(d) { return height - y(d[value]); })
-            .attr("stroke", function() {
-                return d.color = color(d.key);
-            })
-            .attr("fill", function() {
-                return d.color = colorAlpha(d.key);
-            });
+                // .attr("x", function(d) { 
+                //     return x(d[time]) })
+                // .attr("y", function(d) { 
+                //     return y(d[value]); })
+                // .attr("width", 1)
+                // .attr("height", function(d) { return height - y(d[value]); })
+                // .attr("stroke", function() {
+                //     return d.color = color(d.key);
+                // })
+                // .attr("fill", function() {
+                //     return d.color = colorAlpha(d.key);
+                // });
 
-    context.append("path")
-        .datum(d.values)
-        .attr("class", "area")
-        .attr("stroke", function() {
-            return d.color = color(d.key);
-        })
-        .attr("fill", function() {
-            return d.color = colorAlpha(d.key);
-        })
-        .attr("d", area2);
+        var bars = context.append("g");
+        bars.attr("clip-path", "url(#clip)");
+        bars.selectAll(".bar")
+            .data(d.values)
+            .enter().append("circle")
+            .attr("class", "barContext " + d.key)
+            .attr("r", 3)
+            .attr("fill", function () { return colorAlpha(d.key) })
+            .attr("stroke", function() { return color(d.key) })
+            .attr("cx", function(d) { return x2(d[time]); })
+            .attr("cy", function(d) { return y2(d[value]); })
+        // context.append("path")
+        //     .datum(d.values)
+        //     .attr("class", "area")
+        //     .attr("stroke", function() {
+        //         return d.color = color(d.key);
+        //     })
+        //     .attr("fill", function() {
+        //         return d.color = colorAlpha(d.key);
+        //     })
+        //     .attr("d", area2);
 
     })
     focus.append("g")
         .attr("class", "axis axis--x")
         .attr("transform", "translate(0," + height + ")")
         .call(xAxis);
+
+        // y axis label
+    focus.append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", 0 - margin.left)
+        .attr("x",0 - (height / 2))
+        .attr("dy", "1em")
+        .style("text-anchor", "middle")
+        .text("Size (bytes)");
+
+        // legend
+    focus.append("text")
+        .attr("x", width + margin.right)
+        .attr("dy", "1em")
+        .attr("text-anchor", "end")
+        .text("Placeholder legend");
+
+        // x axis label
+    svg.append("text")
+        .attr("transform",
+              "translate(" + ((width + margin.right + margin.left)/2) + " ," +
+                             (height + margin.top + margin.bottom) + ")")
+        .style("text-anchor", "middle")
+        .text("Date");
+
+    svg.append("rect")
+        .attr("class", "zoom")
+        .attr("width", width)
+        .attr("height", height)
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+        .call(zoom);
 
     focus.append("g")
         .attr("class", "axis axis--y")
@@ -182,11 +233,11 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
     function brushed() {
         if (d3.event.sourceEvent && d3.event.sourceEvent.type === "zoom") return; // ignore brush-by-zoom
         var s = d3.event.selection || x2.range();
-        // x.domain(s.map(x2.invert, x2));
+        x.domain(s.map(x2.invert, x2));
         dataNest.forEach(function(d, i) {
             focus.selectAll(".bar." + d.key)
-                .attr("x", function(d) { return x(d[time]) })
-                .attr("y", function(d) { return y(d[value]); })
+                .attr("cx", function(d) { return x(d[time]) })
+                .attr("cy", function(d) { return y(d[value]); })
         });
         focus.select(".axis--x").call(xAxis);
         svg.select(".zoom").call(zoom.transform, d3.zoomIdentity
@@ -200,8 +251,8 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         x.domain(t.rescaleX(x2).domain());
         dataNest.forEach(function(d, i) {
             focus.selectAll(".bar." + d.key)
-                .attr("x", function(d) { return x(d[time]) })
-                .attr("y", function(d) { return y(d[value]); })
+                .attr("cx", function(d) { return x(d[time]) })
+                .attr("cy", function(d) { return y(d[value]); })
         });
         focus.select(".axis--x").call(xAxis);
         context.select(".brush").call(brush.move, x.range().map(t.invertX, t));
