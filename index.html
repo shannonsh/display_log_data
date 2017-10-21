@@ -28,10 +28,6 @@
       background-color: #367fa9 !important;
     }
 
-    .area {
-  /* fill: steelblue; */
-  clip-path: url(#clip);
-}
 
 .zoom {
   cursor: move;
@@ -52,20 +48,6 @@
           <li class="nav-item active">
             <a class="nav-link" href="#">Home <span class="sr-only">(current)</span></a>
           </li>
-          <!-- <li class="nav-item">
-            <a class="nav-link" href="#">Settings</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="#">Profile</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="#">Help</a>
-          </li> -->
-        </ul>
-        <!-- <form class="form-inline mt-2 mt-md-0">
-          <input class="form-control mr-sm-2" type="text" placeholder="Search" aria-label="Search">
-          <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Search</button>
-        </form> -->
       </div>
     </nav>
 
@@ -76,15 +58,6 @@
             <li class="nav-item">
               <a class="nav-link active" href="#">Overview <span class="sr-only">(current)</span></a>
             </li>
-            <!-- <li class="nav-item">
-              <a class="nav-link" href="#">Reports</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="#">Analytics</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="#">Export</a>
-            </li> -->
           </ul>
 
         </nav>
@@ -96,13 +69,7 @@
             <div class="col-12 col-lg-12 placeholder">
               <svg id="main-chart" width="960" height="500"></svg>
               <br><br>
-              <h4>Label</h4>
             </div>
-            <!-- <div class="col-12 col-lg-12 placeholder">
-              <svg id="error-chart" width="960" height="500"></svg>
-              <br><br>
-              <h4>Label</h4>
-            </div> -->
           </section>
 
           <div class="table-responsive">
@@ -159,21 +126,12 @@
 
         logData = psv.parse(data);
         
-        var cleanData = []; // data without errors
-        var errorData = []; // error data
-        logData.forEach(function(d) {
-          if (isNaN(d["Size"]) || errorNums.includes(+d["Size"])) {
-            errorData.push(d);
-          } else {
-            d["Size"] = +d["Size"];
-            cleanData.push(d);
-          }
-        });
-        draw_chart(JSON.parse(JSON.stringify(logData)), "main-chart", "Timestamp", "Size", "Action");
-        // draw_chart(JSON.parse(JSON.stringify(errorData)), "error-chart", "Timestamp", "Size", "Action");
+        function isError(dataPoint) {
+              return isNaN(dataPoint["Size"]) || dataPoint["Size"] < 0;
+        }
         initializeTable("data_table");
 
-        $('#data_table').DataTable( {
+        var table = $('#data_table').DataTable( {
           data: logData,
           "columnDefs": [
               { "type": "num", "targets": 2 }
@@ -184,6 +142,7 @@
             {data: "Size"}
           ]
         });
+        draw_chart(JSON.parse(JSON.stringify(logData)), "main-chart", "Timestamp", "Size", "Action", isError, table);
       });
     </script>
 </body></html>

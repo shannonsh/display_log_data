@@ -1,6 +1,6 @@
 // many thanks to Bostock for providing excellent examples:
 // https://bl.ocks.org/mbostock/34f08d5e11952a80609169b7917d4172
-function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty) {
+function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty, isError, dataTable) {
     var time = timeProperty;
     var value = valueProperty;
     var event = eventProperty;
@@ -9,9 +9,6 @@ function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty) {
     // precision is in milliseconds (not microseconds)
     var parseDate = d3.timeParse("%H:%M:%S.%f%Z");
 
-    function isError(dataPoint) {
-        return isNaN(dataPoint[value]) || dataPoint[value] < 0;
-    }
 
     function cleanID(id) {
         // credit: https://stackoverflow.com/questions/9635625/javascript-regex-to-remove-illegal-characters-from-dom-id
@@ -174,6 +171,7 @@ function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty) {
     // legend
     var legend = focus.append("g")
         .attr("transform", "translate(" + (width + margin.right - 10) + ", 5)")
+        .style("cursor", "pointer");
 
     // draw event types in legend
     dataNest.forEach(function (event, i) {
@@ -331,6 +329,7 @@ function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty) {
     // range of values visible to the user
     // reference: http://blog.scottlogic.com/2015/11/16/sampling-large-data-in-d3fc.html
     function resample(range) {
+        dataTable.clear();
         dataNestUnsampled.forEach(function (event, i) {
             var data = event.values;
             // Calculate visible data for main chart
@@ -339,6 +338,8 @@ function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty) {
                 bisector.left(data, range[0]),
                 Math.min(data.length, bisector.right(data, range[1] - 1))
             );
+
+            dataTable.rows.add(visibleData);
 
             var bucketSize = Math.ceil(visibleData.length / numBuckets);
             sampler.bucketSize(bucketSize);
@@ -349,7 +350,8 @@ function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty) {
                 .data(dataNest[i].values)
                 .attr("cx", function (d) { return x(d[time]); })
                 .attr("cy", function (d) { return y(d[value]); })
-        })
+        });
+        dataTable.draw();
     }
 
 
