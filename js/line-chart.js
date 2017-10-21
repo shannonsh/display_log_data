@@ -8,15 +8,26 @@ function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty) {
     // due to limitations of the Javascript Date type,
     // precision is in milliseconds (not microseconds)
     var parseDate = d3.timeParse("%H:%M:%S.%f%Z");
+
+    function isError(dataPoint) {
+        return isNaN(dataPoint[value]) || dataPoint[value] < 0;
+    }
+
+    function cleanID(id) {
+        // credit: https://stackoverflow.com/questions/9635625/javascript-regex-to-remove-illegal-characters-from-dom-id
+        return id.replace(/^[^a-z]+|[^\w:-]+/gi, "");
+    }
+
     data.forEach(function (d) {
         d[time] = parseDate(d[time]);
-        if(isNaN(d[value]) || d[value] < 0) {
+        if(isError(d)) {
             d[value] = -1;
         } else {
             d[value] = +d[value];
         }
         return d;
     });
+
 
 
     // downsample data for performance gain
@@ -114,58 +125,62 @@ function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty) {
 
     // draw circles for each data point
     // design idea from: https://bl.ocks.org/misanuk/fc39ecc400eed9a3300d807783ef7607
-    dataNest.forEach(function (d, i) {
+    dataNest.forEach(function (event, i) {
         // credit: https://stackoverflow.com/questions/9635625/javascript-regex-to-remove-illegal-characters-from-dom-id
-        var cleanedKey = d.key.replace(/^[^a-z]+|[^\w:-]+/gi, "");
-        var event = focus.append("g")
+        var cleanedKey = cleanID(event.key);
+        var eventElem = focus.append("g")
             .attr("id", cleanedKey + "-data");
-        event.attr("clip-path", "url(#clip)");
-        event.selectAll(".bar")
-            .data(d.values)
+        eventElem.attr("clip-path", "url(#clip)");
+        eventElem.selectAll(".bar")
+            .data(event.values)
             // .filter(function(d) { return !(isNaN(d[value]) || d[value] < 0); })
             .enter().append("circle")
-            .attr("class", "bar " + d.key)
+            .attr("class", "bar " + cleanID(event.key))
             .attr("r", 4)
-            .attr("fill", function () { return colorAlpha(d.key) })
-            .attr("stroke", function () { return color(d.key) })
+            .attr("fill", function () { return colorAlpha(event.key) })
+            .attr("stroke", function (d) { 
+                return isError(d) ? "black" : color(event.key); })
+            .attr("stroke-width", function(d) {
+                return isError(d) ? "3" : "1";
+            })
             .style("opacity", 0.4)
             .attr("cx", function (d) { return x(d[time]); })
             .attr("cy", function (d) { return y(d[value]); })
-         event.selectAll(".errors")
-            .data(d.values)
-            .filter(function(d) { return isNaN(d[value]) || d[value] < 0; })
-            .enter().append("circle")
-            .attr("class", "bar " + d.key)
-            .attr("r", 4)
-            .attr("fill", function () { return "black"; })
-            .attr("stroke", function () { return color(d.key) })
-            .style("opacity", 0.4)
-            .attr("cx", function (d) { return x(d[time]); })
-            .attr("cy", function (d) { return y(d[value]); })
+        //  event.selectAll(".errors")
+        //     .data(event.values)
+        //     .filter(function(d) { return isNaN(d[value]) || d[value] < 0; })
+        //     .enter().append("circle")
+        //     .attr("class", "bar " + event.key)
+        //     .attr("r", 4)
+        //     .attr("fill", function () { return "black"; })
+        //     .attr("stroke", function () { return color(event.key) })
+        //     .style("opacity", 0.4)
+        //     .attr("cx", function (d) { return x(d[time]); })
+        //     .attr("cy", function (d) { return y(d[value]); })
        
         // context view displays actual data, not downsampled
-        var event = context.append("g");
-        event.attr("clip-path", "url(#clip)");
-        event.selectAll(".bar")
+        var eventElem = context.append("g");
+        eventElem.attr("clip-path", "url(#clip)");
+        eventElem.selectAll(".bar")
             .data(dataNestUnsampled[i].values)
             // .filter(function(d) { return !(isNaN(d[value]) || d[value] < 0); })
             .enter().append("circle")
-            .attr("class", "barContext " + d.key)
+            .attr("class", "barContext " + cleanID(event.key))
             .attr("r", 1)
-            .attr("fill", function () { return colorAlpha(d.key) })
+            .attr("fill", function () { return colorAlpha(event.key) })
             .attr("cx", function (d) { return x2(d[time]); })
             .attr("cy", function (d) { return y2(d[value]); })
-        event.selectAll(".errors")
-            .data(d.values)
-            .filter(function(d) { return isNaN(d[value]) || d[value] < 0; })
-            .enter().append("circle")
-            .attr("class", "bar " + d.key)
-            .attr("r", 4)
-            .attr("fill", function () { return "black"; })
-            .attr("stroke", function () { return color(d.key) })
-            .style("opacity", 0.4)
-            .attr("cx", function (d) { return x(d[time]); })
-            .attr("cy", function (d) { return y(0); })
+        // event.selectAll(".errors")
+        //     .data(event.values)
+        //     .filter(function(d) { return isNaN(d[value]) || d[value] < 0; })
+        //     .enter().append("circle")
+        //     .attr("class", "bar " + event.key)
+        //     .attr("r", 4)
+        //     .attr("fill", function () { return "black"; })
+        //     .attr("stroke", function () { return color(event.key) })
+        //     .style("opacity", 0.4)
+        //     .attr("cx", function (d) { return x(d[time]); })
+        //     .attr("cy", function (d) { return y(0); })
     });
 
     // x axis label
@@ -206,7 +221,7 @@ function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty) {
                 var active = event.active ? false : true,
                     newOpacity = active ? 0 : 1;
                 // Hide or show the elements based on the ID
-                d3.select("#" + event.key + "-data")
+                d3.select("#" + cleanID(event.key) + "-data")
                     .transition().duration(100)
                     .style("opacity", newOpacity);
                 this.querySelector("text").setAttribute("opacity", newOpacity + 0.5)
@@ -325,7 +340,7 @@ function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty) {
         resample(x.domain()); // draw current view in more detail, don't draw offscreen points
         // remove redundant points
         dataNest.forEach(function (d, i) {
-            focus.selectAll(".bar." + d.key)
+            focus.selectAll(".bar." + cleanID(d.key))
                 .attr("cx", function (d) { return x(d[time]) })
                 .attr("cy", function (d) { return y(d[value]); })
         });
@@ -357,8 +372,7 @@ function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty) {
 
             dataNest[i].values = sampler(visibleData);
 
-            var cleanedKey = event.key.replace(/^[^a-z]+|[^\w:-]+/gi, "");
-            focus.select("#" + cleanedKey + "-data").selectAll(".bar")
+            focus.select("#" + cleanID(event.key) + "-data").selectAll(".bar")
                 .data(dataNest[i].values)
                 .attr("cx", function (d) { return x(d[time]); })
                 .attr("cy", function (d) { return y(d[value]); })
