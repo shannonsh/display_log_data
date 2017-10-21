@@ -11,7 +11,8 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         d[time] = parseDate(d[time]);
         d[value] = +d[value];
         return d;
-    })
+    });
+
 
     // downsample data for performance gain
     const sampler = fc.largestTriangleThreeBucket();
@@ -89,28 +90,6 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         .attr("class", "context")
         .attr("transform", "translate(" + margin2.left + "," + margin2.top + ")");
 
-    // var zoomRect = svg.append("rect")
-    //     .attr("class", "zoom")
-    //     .attr("width", width)
-    //     .attr("height", height)
-    //     .attr("fill", "transparent")
-    //     .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
-    //     .call(zoom);
-
-    // zoomRect.on("mousenter", function () {
-    //     // console.log("entering");
-    //     // body.style.overflow = "hidden";
-    // })
-    // .on("wheel", function() {
-    //     d3.event.preventDefault();
-    // })
-    // .on("mouseout", function() {
-    //     // console.log("leaving");
-    //     // body.style.overflow = "auto";
-    // })
-    // // .on('mousemove', displayTooltip)
-
-
     var alpha = 0.5;
     var schemeCategory10 = function (alpha) {
         return ["rgba(31,119,180," + alpha + ")",
@@ -127,6 +106,9 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
 
     var color = d3.scaleOrdinal(schemeCategory10(1));
     var colorAlpha = d3.scaleOrdinal(schemeCategory10(alpha));
+
+    // draw circles for each data point
+    // design idea from: https://bl.ocks.org/misanuk/fc39ecc400eed9a3300d807783ef7607
     dataNest.forEach(function (d, i) {
         var event = focus.append("g")
             .attr("id", d.key + "-data");
@@ -142,6 +124,7 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
             .attr("cx", function (d) { return x(d[time]); })
             .attr("cy", function (d) { return y(d[value]); })
 
+        // context view displays actual data, not downsampled
         var event = context.append("g");
         event.attr("clip-path", "url(#clip)");
         event.selectAll(".bar")
@@ -152,7 +135,9 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
             .attr("fill", function () { return colorAlpha(d.key) })
             .attr("cx", function (d) { return x2(d[time]); })
             .attr("cy", function (d) { return y2(d[value]); })
-    })
+    });
+
+    // x axis label
     focus.append("g")
         .attr("class", "axis axis--x")
         .attr("transform", "translate(0," + height + ")")
@@ -170,9 +155,8 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
     // legend
     var legend = focus.append("g")
         .attr("transform", "translate(" + (width + margin.right) + ", 5)")
-    // .attr("x", width + margin.right)
-    // .attr("dy", "1em")
 
+    // draw event types in legend
     dataNest.forEach(function (event, i) {
         var pair = legend.append("g")
         var label = pair.append("text")
@@ -287,39 +271,46 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         .call(brush)
         .call(brush.move, x.range());
 
+    // pan graph side to side
     function brushed() {
         // ignore brush-by-zoom
         if (d3.event.sourceEvent && d3.event.sourceEvent.type === "zoom") return; 
         var s = d3.event.selection || x2.range();
-        x.domain(s.map(x2.invert, x2));
-        // resample(x.domain());
-        dataNest.forEach(function (d, i) {
-            focus.selectAll(".bar." + d.key)
-                .attr("cx", function (d) { return x(d[time]) })
-                .attr("cy", function (d) { return y(d[value]); })
-        });
-        focus.select(".axis--x").call(xAxis);
+        x.domain(s.map(x2.invert, x2)); // determine new x range
+        resample(x.domain()); // stop drawing offscreen points
+        focus.select(".axis--x").call(xAxis); // redraw x axis
+        // modify zoom function to use updated x range
         svg.select(".zoom").call(zoom.transform, d3.zoomIdentity
             .scale(width / (s[1] - s[0]))
             .translate(-s[0], 0));
     }
 
+    // zoom in on graph
     function zoomed() {
         // ignore zoom-by-brush
         if (d3.event.sourceEvent && d3.event.sourceEvent.type === "brush") return; 
         var t = d3.event.transform;
-        x.domain(t.rescaleX(x2).domain());
-        resample(x.domain());
+        x.domain(t.rescaleX(x2).domain()); // rescale x axis
+        resample(x.domain()); // draw current view in more detail, don't draw offscreen points
+        // remove redundant points
         dataNest.forEach(function (d, i) {
             focus.selectAll(".bar." + d.key)
                 .attr("cx", function (d) { return x(d[time]) })
                 .attr("cy", function (d) { return y(d[value]); })
         });
+        // redraw x axis
         focus.select(".axis--x").call(xAxis);
+        // update brush function to updated view
         context.select(".brush").call(brush.move, x.range().map(t.invertX, t));
     }
 
+    // create func that translates the approximate data point corresponding
+    // to a given time
     var bisector = d3.bisector(function (d) { return d[time]; });
+
+    // determines what data points need to be drawn based on the current
+    // range of values visible to the user
+    // reference: http://blog.scottlogic.com/2015/11/16/sampling-large-data-in-d3fc.html
     function resample(range) {
         dataNestUnsampled.forEach(function (event, i) {
             var data = event.values;
@@ -342,34 +333,5 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         })
     }
 
-
-    // var circle = svg.append('circle')
-    // .attr('r', 5);
-
-    // var bisector = d3.bisector(function(d){ return d[time]; }).left;
-    // function displayTooltip() {
-    //     // reference: https://www.pshrmn.com/tutorials/d3/mouse/
-    //     var coordinates = d3.mouse(this);
-    //     var domainX = x.invert(coordinates[0]);
-
-    //     var pos = bisector(sampledData, domainX);
-    //     // get the closest smaller and larger values in the data array
-    //     var smaller = sampledData[pos - 1];
-    //     var larger = sampledData[pos];
-    //     // figure out which one is closer to the domain value
-    //     var closest = domainX - smaller[time] < larger[time] - domainX ? smaller : larger;
-
-    //     circle
-    //     .attr('cx', x(closest[time]))
-    //     .attr('cy', y(closest[value]));
-    // }
-
-    // svg.select(".area")
-    //     .attr("fill", "steelblue")
-    //     .attr("clip-path", "url(#clip");
-    // svg.select(".zoom")
-    //     .attr("cursor", "move")
-    //     .attr("fill", "none")
-    //     .attr("pointer-events", "all")
 
 }
