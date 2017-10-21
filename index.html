@@ -105,6 +105,7 @@
       var appendColumnNames = true;
       var errorNums = [-1];
       var columns = ["Timestamp", "Action", "Size"];
+      // add appropriate columns to table before drawing it
       function initializeTable(table_id) {
         var table_header = document.querySelector("#" + table_id + " tr");
         for (var i = 0; i < columns.length; i++) {
@@ -112,6 +113,34 @@
           th.innerHTML = columns[i];
           table_header.appendChild(th);
         }
+      }
+    </script>
+    <script>
+        // parse time stamps into date
+          // due to limitations of the Javascript Date type,
+          // precision is in milliseconds (not microseconds)
+          var parseDate = d3.timeParse("%H:%M:%S.%f%Z");
+      function binarySearch(list, target, searchFunction) {
+       var min = 0;
+       var max = list.length - 1;
+       var currentIndex;
+       var currentElement;
+
+       while (min <= max) {
+         currentIndex = parseInt((min + max) / 2);
+         currentElement = searchFunction(list[currentIndex]);
+
+         if (currentElement < target) {
+           min = currentIndex + 1;
+         }
+         else if (currentElement > target) {
+           max = currentIndex - 1;
+         } 
+         else {
+           return currentIndex;
+         }
+       }
+           return currentIndex;
       }
     </script>
     <script>
@@ -124,13 +153,44 @@
           data = columns.join(" ") + "\n" + data;
         }
 
+
         logData = psv.parse(data);
+        logData.sort(function(a, b) {
+          return parseDate(a) - parseDate(b);
+        });
         
+
         function isError(dataPoint) {
               return isNaN(dataPoint["Size"]) || dataPoint["Size"] < 0;
         }
-        initializeTable("data_table");
+        function updateTable(range) {
+            var filterProperty = "Timestamp";
+            var searchFunction = function(d) { return parseDate(d[filterProperty]).getTime(); };
+            var bisector = d3.bisector(searchFunction);
+            // var startElem = binarySearch(logData, range[0], searchFunction);
+            // var endElem = binarySearch(logData, range[1], searchFunction);
+            var newData = logData.slice(bisector.left(logData, range[0]), 
+              bisector.right(logData, range[1]));
+            table.clear();
+            table.rows.add(newData);
+            table.draw();
+        }
 
+        var lastRange = "";
+          setInterval(function() {
+            var range = document.querySelector("svg").getAttribute("data-range");
+            if (lastRange != range) {
+              lastRange = range;
+              range = JSON.parse(range);
+              for (var i = 0; i < range.length; i++) {
+                range[i] = new Date(range[i]);
+              }
+              updateTable(range);
+            }
+          }, 1000)
+
+
+        initializeTable("data_table");
         var table = $('#data_table').DataTable( {
           data: logData,
           "columnDefs": [
@@ -142,7 +202,7 @@
             {data: "Size"}
           ]
         });
-        draw_chart(JSON.parse(JSON.stringify(logData)), "main-chart", "Timestamp", "Size", "Action", isError, table);
+        draw_chart(JSON.parse(JSON.stringify(logData)), "main-chart", "Timestamp", "Size", "Action", parseDate, isError, updateTable);
       });
     </script>
 </body></html>

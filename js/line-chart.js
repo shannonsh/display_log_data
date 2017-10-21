@@ -1,14 +1,10 @@
 // many thanks to Bostock for providing excellent examples:
 // https://bl.ocks.org/mbostock/34f08d5e11952a80609169b7917d4172
-function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty, isError, dataTable) {
+function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty, parseDate, isError, tableChangeFunc) {
     var time = timeProperty;
     var value = valueProperty;
     var event = eventProperty;
-    // parse time stamps into date
-    // due to limitations of the Javascript Date type,
-    // precision is in milliseconds (not microseconds)
-    var parseDate = d3.timeParse("%H:%M:%S.%f%Z");
-
+    
 
     function cleanID(id) {
         // credit: https://stackoverflow.com/questions/9635625/javascript-regex-to-remove-illegal-characters-from-dom-id
@@ -35,7 +31,8 @@ function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty, isE
         .y(function (d) { return d[valueProperty] });
 
     // var numBuckets = document.body.clientWidth - 1000;
-    var numBuckets = Math.min(2000, data.length / 10);
+    var numBuckets = Math.min(1000, data.length / 10);
+    console.log("numBuckets: " + numBuckets);
     var bucketSizes = {};
     // combine events together so each event has its own
     // dataset
@@ -306,6 +303,8 @@ function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty, isE
     function zoomed() {
         // ignore zoom-by-brush
         if (d3.event.sourceEvent && d3.event.sourceEvent.type === "brush") return; 
+        console.log("begin zoomed");
+        console.log(Date.now());
         var t = d3.event.transform;
         x.domain(t.rescaleX(x2).domain()); // rescale x axis
         resample(x.domain()); // draw current view in more detail, don't draw offscreen points
@@ -319,6 +318,9 @@ function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty, isE
         focus.select(".axis--x").call(xAxis);
         // update brush function to updated view
         context.select(".brush").call(brush.move, x.range().map(t.invertX, t));
+        console.log("end zoomed");
+        console.log(Date.now());
+
     }
 
     // create func that translates the approximate data point corresponding
@@ -329,29 +331,36 @@ function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty, isE
     // range of values visible to the user
     // reference: http://blog.scottlogic.com/2015/11/16/sampling-large-data-in-d3fc.html
     function resample(range) {
-        dataTable.clear();
+        svg.attr("data-range", '[' + range[0].getTime() + ',' + range[1].getTime() + ']');
         dataNestUnsampled.forEach(function (event, i) {
             var data = event.values;
             // Calculate visible data for main chart
             var bisector = d3.bisector(function (d) { return d[time]; });
+            console.log("bisector");
+            console.log(Date.now());
             var visibleData = data.slice(
                 bisector.left(data, range[0]),
                 Math.min(data.length, bisector.right(data, range[1] - 1))
             );
+            console.log(Date.now());
 
-            dataTable.rows.add(visibleData);
 
             var bucketSize = Math.ceil(visibleData.length / numBuckets);
             sampler.bucketSize(bucketSize);
 
+            console.log("sample");
+            console.log(Date.now());
             dataNest[i].values = sampler(visibleData);
+            console.log(Date.now());
 
+            console.log("redraw")
+            console.log(Date.now());
             focus.select("#" + cleanID(event.key) + "-data").selectAll(".bar")
                 .data(dataNest[i].values)
                 .attr("cx", function (d) { return x(d[time]); })
                 .attr("cy", function (d) { return y(d[value]); })
+            console.log(Date.now());
         });
-        dataTable.draw();
     }
 
 
