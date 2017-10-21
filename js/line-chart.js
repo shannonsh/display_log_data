@@ -1,15 +1,20 @@
 // many thanks to Bostock for providing excellent examples:
 // https://bl.ocks.org/mbostock/34f08d5e11952a80609169b7917d4172
-function draw_chart(data, svgID, timeProperty, valueProperty, event) {
+function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty) {
     var time = timeProperty;
     var value = valueProperty;
+    var event = eventProperty;
     // parse time stamps into date
     // due to limitations of the Javascript Date type,
     // precision is in milliseconds (not microseconds)
     var parseDate = d3.timeParse("%H:%M:%S.%f%Z");
     data.forEach(function (d) {
         d[time] = parseDate(d[time]);
-        d[value] = +d[value];
+        if(isNaN(d[value]) || d[value] < 0) {
+            d[value] = -1;
+        } else {
+            d[value] = +d[value];
+        }
         return d;
     });
 
@@ -110,11 +115,14 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
     // draw circles for each data point
     // design idea from: https://bl.ocks.org/misanuk/fc39ecc400eed9a3300d807783ef7607
     dataNest.forEach(function (d, i) {
+        // credit: https://stackoverflow.com/questions/9635625/javascript-regex-to-remove-illegal-characters-from-dom-id
+        var cleanedKey = d.key.replace(/^[^a-z]+|[^\w:-]+/gi, "");
         var event = focus.append("g")
-            .attr("id", d.key + "-data");
+            .attr("id", cleanedKey + "-data");
         event.attr("clip-path", "url(#clip)");
         event.selectAll(".bar")
             .data(d.values)
+            // .filter(function(d) { return !(isNaN(d[value]) || d[value] < 0); })
             .enter().append("circle")
             .attr("class", "bar " + d.key)
             .attr("r", 4)
@@ -123,18 +131,41 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
             .style("opacity", 0.4)
             .attr("cx", function (d) { return x(d[time]); })
             .attr("cy", function (d) { return y(d[value]); })
-
+         event.selectAll(".errors")
+            .data(d.values)
+            .filter(function(d) { return isNaN(d[value]) || d[value] < 0; })
+            .enter().append("circle")
+            .attr("class", "bar " + d.key)
+            .attr("r", 4)
+            .attr("fill", function () { return "black"; })
+            .attr("stroke", function () { return color(d.key) })
+            .style("opacity", 0.4)
+            .attr("cx", function (d) { return x(d[time]); })
+            .attr("cy", function (d) { return y(d[value]); })
+       
         // context view displays actual data, not downsampled
         var event = context.append("g");
         event.attr("clip-path", "url(#clip)");
         event.selectAll(".bar")
             .data(dataNestUnsampled[i].values)
+            // .filter(function(d) { return !(isNaN(d[value]) || d[value] < 0); })
             .enter().append("circle")
             .attr("class", "barContext " + d.key)
             .attr("r", 1)
             .attr("fill", function () { return colorAlpha(d.key) })
             .attr("cx", function (d) { return x2(d[time]); })
             .attr("cy", function (d) { return y2(d[value]); })
+        event.selectAll(".errors")
+            .data(d.values)
+            .filter(function(d) { return isNaN(d[value]) || d[value] < 0; })
+            .enter().append("circle")
+            .attr("class", "bar " + d.key)
+            .attr("r", 4)
+            .attr("fill", function () { return "black"; })
+            .attr("stroke", function () { return color(d.key) })
+            .style("opacity", 0.4)
+            .attr("cx", function (d) { return x(d[time]); })
+            .attr("cy", function (d) { return y(0); })
     });
 
     // x axis label
@@ -326,7 +357,8 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
 
             dataNest[i].values = sampler(visibleData);
 
-            focus.select("#" + event.key + "-data").selectAll(".bar")
+            var cleanedKey = event.key.replace(/^[^a-z]+|[^\w:-]+/gi, "");
+            focus.select("#" + cleanedKey + "-data").selectAll(".bar")
                 .data(dataNest[i].values)
                 .attr("cx", function (d) { return x(d[time]); })
                 .attr("cy", function (d) { return y(d[value]); })

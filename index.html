@@ -98,11 +98,11 @@
               <br><br>
               <h4>Label</h4>
             </div>
-            <div class="col-12 col-lg-12 placeholder">
+            <!-- <div class="col-12 col-lg-12 placeholder">
               <svg id="error-chart" width="960" height="500"></svg>
               <br><br>
               <h4>Label</h4>
-            </div>
+            </div> -->
           </section>
 
           <div class="table-responsive">
@@ -169,8 +169,8 @@
             cleanData.push(d);
           }
         });
-        draw_chart(JSON.parse(JSON.stringify(cleanData)), "main-chart", "Timestamp", "Size", "Action");
-        draw_chart(JSON.parse(JSON.stringify(errorData)), "error-chart", "Timestamp", "Size", "Action");
+        draw_chart(JSON.parse(JSON.stringify(logData)), "main-chart", "Timestamp", "Size", "Action");
+        // draw_chart(JSON.parse(JSON.stringify(errorData)), "error-chart", "Timestamp", "Size", "Action");
         initializeTable("data_table");
 
         $('#data_table').DataTable( {
