@@ -14,12 +14,12 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
     })
 
     // downsample data for performance gain
-    const sampler = fc.largestTriangleOneBucket();
+    const sampler = fc.largestTriangleThreeBucket();
 
     sampler.x(function(d) {return d[timeProperty]})
            .y(function(d) {return d[valueProperty]});
     
-    var numBuckets = document.body.clientWidth - 1000;
+    var numBuckets = document.body.clientWidth - 500;
     var bucketSizes = {};
     // combine events together so each event has its own
     // dataset
@@ -212,7 +212,22 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         .attr("width", width)
         .attr("height", height)
         .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+        .on("mouseover", function() { tooltip.style("display", null); })
+        .on("mouseout", function() { tooltip.style("display", "none"); })
+        .on("mousemove", mousemove)
         .call(zoom);
+
+    var tooltip = svg.append("g")
+        .attr("class", "tooltip")
+        .style("display", "none");
+  
+    tooltip.append("circle")
+        .attr("fill", "black")
+        .attr("r", 20);
+  
+    tooltip.append("text")
+        .attr("x", 9)
+        .attr("dy", ".35em");
 
     focus.append("g")
         .attr("class", "axis axis--y")
@@ -241,6 +256,7 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         svg.select(".zoom").call(zoom.transform, d3.zoomIdentity
             .scale(width / (s[1] - s[0]))
             .translate(-s[0], 0));
+        resample(x.domain());
     }
 
     function zoomed() {
@@ -254,7 +270,7 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         });
         focus.select(".axis--x").call(xAxis);
         context.select(".brush").call(brush.move, x.range().map(t.invertX, t));
-        resample(x.range().map(t.invertX, t));
+        resample(x.domain());
     }
 
     var bisector = d3.bisector(function(d) { return d[time]; });
@@ -262,9 +278,10 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         dataNestUnsampled.forEach(function(event, i) {
             var data = event.values;
             // Calculate visible data for main chart
+    var bisector = d3.bisector(function(d) { return d[time]; });
             var visibleData = data.slice(
-                bisector.left(data, x.invert(range[0])),
-                Math.min(data.length, bisector.right(data, x.invert(range[1])))
+                bisector.left(data, range[0]),
+                Math.min(data.length, bisector.right(data, range[1] - 1))
             );
 
             var bucketSize = Math.ceil(visibleData.length / numBuckets);
@@ -276,18 +293,19 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
                 .data(dataNest[i].values)
                 .attr("cx", function (d) { return x(d[time]); })
                 .attr("cy", function (d) { return y(d[value]); })
-        // var container = d3.select(this);
-
-        // container.select('svg.main')
-        //     .datum(visibleData)
-        //     .call(mainChart);
-
-        // container.select('svg.navigator')
-        //     .datum(data.navigatorData)
-        //     .call(navigatorChart);
-
         })
     }
+
+    function mousemove() {
+        var x0 = x.invert(d3.mouse(this)[0]),
+            i = bisector.left(data, x0, 1),
+            d0 = data[i - 1],
+            d1 = data[i],
+            // find closest data point
+            d = x0 - d0[time] > d1[time] - x0 ? d1 : d0;
+        tooltip.attr("transform", "translate(" + x(d[time]) + "," + y(d[value]) + ")");
+        tooltip.select("text").text("Stuff");
+      }
 
     // var circle = svg.append('circle')
     // .attr('r', 5);
