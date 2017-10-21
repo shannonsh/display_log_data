@@ -22,6 +22,7 @@ function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty) {
         d[time] = parseDate(d[time]);
         if(isError(d)) {
             d[value] = -1;
+            d[event] += " error";
         } else {
             d[value] = +d[value];
         }
@@ -133,54 +134,26 @@ function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty) {
         eventElem.attr("clip-path", "url(#clip)");
         eventElem.selectAll(".bar")
             .data(event.values)
-            // .filter(function(d) { return !(isNaN(d[value]) || d[value] < 0); })
             .enter().append("circle")
             .attr("class", "bar " + cleanID(event.key))
             .attr("r", 4)
             .attr("fill", function () { return colorAlpha(event.key) })
-            .attr("stroke", function (d) { 
-                return isError(d) ? "black" : color(event.key); })
-            .attr("stroke-width", function(d) {
-                return isError(d) ? "3" : "1";
-            })
+            .attr("stroke", color(event.key))
             .style("opacity", 0.4)
             .attr("cx", function (d) { return x(d[time]); })
             .attr("cy", function (d) { return y(d[value]); })
-        //  event.selectAll(".errors")
-        //     .data(event.values)
-        //     .filter(function(d) { return isNaN(d[value]) || d[value] < 0; })
-        //     .enter().append("circle")
-        //     .attr("class", "bar " + event.key)
-        //     .attr("r", 4)
-        //     .attr("fill", function () { return "black"; })
-        //     .attr("stroke", function () { return color(event.key) })
-        //     .style("opacity", 0.4)
-        //     .attr("cx", function (d) { return x(d[time]); })
-        //     .attr("cy", function (d) { return y(d[value]); })
-       
+      
         // context view displays actual data, not downsampled
         var eventElem = context.append("g");
         eventElem.attr("clip-path", "url(#clip)");
         eventElem.selectAll(".bar")
             .data(dataNestUnsampled[i].values)
-            // .filter(function(d) { return !(isNaN(d[value]) || d[value] < 0); })
             .enter().append("circle")
             .attr("class", "barContext " + cleanID(event.key))
             .attr("r", 1)
             .attr("fill", function () { return colorAlpha(event.key) })
             .attr("cx", function (d) { return x2(d[time]); })
             .attr("cy", function (d) { return y2(d[value]); })
-        // event.selectAll(".errors")
-        //     .data(event.values)
-        //     .filter(function(d) { return isNaN(d[value]) || d[value] < 0; })
-        //     .enter().append("circle")
-        //     .attr("class", "bar " + event.key)
-        //     .attr("r", 4)
-        //     .attr("fill", function () { return "black"; })
-        //     .attr("stroke", function () { return color(event.key) })
-        //     .style("opacity", 0.4)
-        //     .attr("cx", function (d) { return x(d[time]); })
-        //     .attr("cy", function (d) { return y(0); })
     });
 
     // x axis label
@@ -200,7 +173,7 @@ function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty) {
 
     // legend
     var legend = focus.append("g")
-        .attr("transform", "translate(" + (width + margin.right) + ", 5)")
+        .attr("transform", "translate(" + (width + margin.right - 10) + ", 5)")
 
     // draw event types in legend
     dataNest.forEach(function (event, i) {
@@ -210,7 +183,7 @@ function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty) {
             .text(event.key);
         var dim = label.node().getBBox();
         pair.append("circle")
-            .attr("transform", "translate(" + (dim.x - 5) + "," + (dim.y / 4) + ")")
+            .attr("transform", "translate(" + (dim.x + dim.width + 5) + "," + (dim.y / 4) + ")")
             .attr("r", 4)
             .attr("fill", function () { return colorAlpha(event.key) })
             .attr("stroke", function () { return color(event.key) })
