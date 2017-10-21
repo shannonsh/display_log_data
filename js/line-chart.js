@@ -303,8 +303,6 @@ function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty, par
     function zoomed() {
         // ignore zoom-by-brush
         if (d3.event.sourceEvent && d3.event.sourceEvent.type === "brush") return; 
-        console.log("begin zoomed");
-        console.log(Date.now());
         var t = d3.event.transform;
         x.domain(t.rescaleX(x2).domain()); // rescale x axis
         resample(x.domain()); // draw current view in more detail, don't draw offscreen points
@@ -318,8 +316,6 @@ function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty, par
         focus.select(".axis--x").call(xAxis);
         // update brush function to updated view
         context.select(".brush").call(brush.move, x.range().map(t.invertX, t));
-        console.log("end zoomed");
-        console.log(Date.now());
 
     }
 
@@ -336,30 +332,21 @@ function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty, par
             var data = event.values;
             // Calculate visible data for main chart
             var bisector = d3.bisector(function (d) { return d[time]; });
-            console.log("bisector");
-            console.log(Date.now());
             var visibleData = data.slice(
                 bisector.left(data, range[0]),
                 Math.min(data.length, bisector.right(data, range[1] - 1))
             );
-            console.log(Date.now());
 
 
             var bucketSize = Math.ceil(visibleData.length / numBuckets);
             sampler.bucketSize(bucketSize);
 
-            console.log("sample");
-            console.log(Date.now());
             dataNest[i].values = sampler(visibleData);
-            console.log(Date.now());
 
-            console.log("redraw")
-            console.log(Date.now());
             focus.select("#" + cleanID(event.key) + "-data").selectAll(".bar")
                 .data(dataNest[i].values)
                 .attr("cx", function (d) { return x(d[time]); })
                 .attr("cy", function (d) { return y(d[value]); })
-            console.log(Date.now());
         });
     }
 
