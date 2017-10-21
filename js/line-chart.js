@@ -208,13 +208,26 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         .style("text-anchor", "middle")
         .text("Date");
 
+    var tooltip = svg.append("g")
+        .attr("class", "tool-tip") // namespace conflict with bootstrap
+  
+    tooltip.append("circle")
+        .attr("fill", "black")
+        .attr("r", 3);
+  
+    tooltip.append("text")
+        .attr("x", 9)
+        .attr("dy", ".35em");
+
     svg.append("rect")
         .attr("class", "zoom")
         .attr("width", width)
         .attr("height", height)
         .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
-        .on("mouseover", function() { tooltip.style("display", null); })
-        .on("mouseout", function() { tooltip.style("display", "none"); })
+        .on("mouseover", function() { 
+            tooltip.style("display", ""); })
+        .on("mouseout", function() { 
+            tooltip.style("display", "none"); })
         .on("mousemove", mousemove)
         .on("wheel", function() { 
             d3.event.stopPropagation();
@@ -222,17 +235,7 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
          })
         .call(zoom);
 
-    var tooltip = svg.append("g")
-        .attr("class", "tooltip")
-        .style("display", "none");
-  
-    tooltip.append("circle")
-        .attr("fill", "black")
-        .attr("r", 20);
-  
-    tooltip.append("text")
-        .attr("x", 9)
-        .attr("dy", ".35em");
+    
 
     focus.append("g")
         .attr("class", "axis axis--y")
@@ -283,7 +286,7 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         dataNestUnsampled.forEach(function(event, i) {
             var data = event.values;
             // Calculate visible data for main chart
-    var bisector = d3.bisector(function(d) { return d[time]; });
+            var bisector = d3.bisector(function (d) { return d[time]; });
             var visibleData = data.slice(
                 bisector.left(data, range[0]),
                 Math.min(data.length, bisector.right(data, range[1] - 1))
@@ -308,6 +311,7 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         var closestDist = Number.MAX_SAFE_INTEGER;
         var closest = null;
         dataNest.forEach(function(event, i) {
+            if (!event.values.length) { return; } // don't do anything if no data points in that event
             var index = bisector.left(event.values, x0, 1);
             var d0 = event.values[index - 1];
             var d1 = event.values[index];
@@ -331,7 +335,7 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
             // // find closest data point
             // d = x0 - d0[time] > d1[time] - x0 ? d1 : d0;
         tooltip.attr("transform", "translate(" + x(closest[time]) + "," + y(closest[value]) + ")");
-        tooltip.select("text").text(closest[value]);
+        tooltip.select("text").text("time: " + closest[time].toString() + "value: " + closest[value] + " event: " + closest["Action"]);
       }
 
     // var circle = svg.append('circle')
