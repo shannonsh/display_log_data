@@ -19,7 +19,8 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
     sampler.x(function(d) {return d[timeProperty]})
            .y(function(d) {return d[valueProperty]});
     
-    var numBuckets = document.body.clientWidth - 500;
+    // var numBuckets = document.body.clientWidth - 1000;
+    var numBuckets = Math.min(2000, data.length/10);
     var bucketSizes = {};
     // combine events together so each event has its own
     // dataset
@@ -144,10 +145,10 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         var event = context.append("g");
         event.attr("clip-path", "url(#clip)");
         event.selectAll(".bar")
-            .data(d.values)
+            .data(dataNestUnsampled[i].values)
             .enter().append("circle")
             .attr("class", "barContext " + d.key)
-            .attr("r", 3)
+            .attr("r", 1)
             .attr("fill", function () { return colorAlpha(d.key) })
             .attr("cx", function(d) { return x2(d[time]); })
             .attr("cy", function(d) { return y2(d[value]); })
@@ -215,6 +216,10 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         .on("mouseover", function() { tooltip.style("display", null); })
         .on("mouseout", function() { tooltip.style("display", "none"); })
         .on("mousemove", mousemove)
+        .on("wheel", function() { 
+            d3.event.stopPropagation();
+            d3.event.preventDefault();
+         })
         .call(zoom);
 
     var tooltip = svg.append("g")
@@ -247,6 +252,7 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         if (d3.event.sourceEvent && d3.event.sourceEvent.type === "zoom") return; // ignore brush-by-zoom
         var s = d3.event.selection || x2.range();
         x.domain(s.map(x2.invert, x2));
+        resample(x.domain());
         dataNest.forEach(function(d, i) {
             focus.selectAll(".bar." + d.key)
                 .attr("cx", function(d) { return x(d[time]) })
@@ -256,13 +262,13 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         svg.select(".zoom").call(zoom.transform, d3.zoomIdentity
             .scale(width / (s[1] - s[0]))
             .translate(-s[0], 0));
-        resample(x.domain());
     }
 
     function zoomed() {
         if (d3.event.sourceEvent && d3.event.sourceEvent.type === "brush") return; // ignore zoom-by-brush
         var t = d3.event.transform;
         x.domain(t.rescaleX(x2).domain());
+        resample(x.domain());
         dataNest.forEach(function(d, i) {
             focus.selectAll(".bar." + d.key)
                 .attr("cx", function(d) { return x(d[time]) })
@@ -270,7 +276,6 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
         });
         focus.select(".axis--x").call(xAxis);
         context.select(".brush").call(brush.move, x.range().map(t.invertX, t));
-        resample(x.domain());
     }
 
     var bisector = d3.bisector(function(d) { return d[time]; });
@@ -297,14 +302,36 @@ function draw_chart(data, svgID, timeProperty, valueProperty, event) {
     }
 
     function mousemove() {
-        var x0 = x.invert(d3.mouse(this)[0]),
-            i = bisector.left(data, x0, 1),
-            d0 = data[i - 1],
-            d1 = data[i],
-            // find closest data point
-            d = x0 - d0[time] > d1[time] - x0 ? d1 : d0;
-        tooltip.attr("transform", "translate(" + x(d[time]) + "," + y(d[value]) + ")");
-        tooltip.select("text").text("Stuff");
+        var x0 = x.invert(d3.mouse(this)[0]);
+        var y0 = y.invert(d3.mouse(this)[1]);
+
+        var closestDist = Number.MAX_SAFE_INTEGER;
+        var closest = null;
+        dataNest.forEach(function(event, i) {
+            var index = bisector.left(event.values, x0, 1);
+            var d0 = event.values[index - 1];
+            var d1 = event.values[index];
+            if (x0 - d0[time] > d1[time] - x0) {
+                if (d1[time] - x0 < closestDist) {
+                    closestDist = d1[time] - x0;
+                    closest = d1;
+                }
+            } else {
+                if (x0 - d0[time] < closestDist) {
+                    closestDist = x0 - d0[time];
+                    closest = d0;
+                }
+            }
+            // var d = x0 - d0[time] > d1[time] - x0 ? d1 : d0;
+            
+        })
+            // i = bisector.left(data, x0, 1),
+            // d0 = data[i - 1],
+            // d1 = data[i],
+            // // find closest data point
+            // d = x0 - d0[time] > d1[time] - x0 ? d1 : d0;
+        tooltip.attr("transform", "translate(" + x(closest[time]) + "," + y(closest[value]) + ")");
+        tooltip.select("text").text(closest[value]);
       }
 
     // var circle = svg.append('circle')
