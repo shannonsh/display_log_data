@@ -1,0 +1,22 @@
+.container-fluid {
+    background-color: #ecf0f5;
+}
+.sidebar { 
+    background-color: #333 !important;
+    color: white;
+}
+.navbar { 
+    background-color: #367fa9 !important;
+}
+
+
+.zoom {
+cursor: move;
+fill: none;
+pointer-events: all;
+}
+
+#dataUploadWrapper {
+    position: relative;
+    top: -300px;
+}
