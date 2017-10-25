@@ -1,6 +1,16 @@
 // many thanks to Bostock for providing excellent examples:
 // https://bl.ocks.org/mbostock/34f08d5e11952a80609169b7917d4172
-function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty, parseDate, isError, tableChangeFunc) {
+/*
+* data: list of object with column values as properties
+* svgID: the id of the svg element to draw the chart in
+* timeProperty: column to display on x-axis
+* valueProperty: column to display on y-axis
+* eventProperty: categories of data (denoted by color). Errors are their own category
+* parseDate: function to parse the date with
+* isError: function to determine whether a given data point is an error
+* 
+*/
+function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty, parseDate, isError) {
     var time = timeProperty;
     var value = valueProperty;
     var event = eventProperty;

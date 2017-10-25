@@ -9,6 +9,7 @@
     <!-- Bootstrap core CSS -->
     <link href="css/bootstrap.min.css" rel="stylesheet">
     <link href="css/jquery.dataTables.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 
     <!-- Custom styles for this template -->
     <link href="css/dashboard.css" rel="stylesheet">
@@ -34,6 +35,14 @@
   fill: none;
   pointer-events: all;
 }
+
+    #dataUploadWrapper {
+      position: relative;
+      top: -300px;
+    }
+     .fa-spin {
+       /* display: none; */
+     }
   </style>
 
   <body>
@@ -71,7 +80,6 @@
               <a class="nav-link">Click bottom button to view visible data in table</a>
             </li>
           </ul>
-          <!-- <div>TThis is some placehold textThis is some placehold textThis is some placehold texthis is some placehold text</div> -->
         </nav>
 
         <main class="col-sm-9 ml-sm-auto col-md-10 pt-3" role="main">
@@ -81,6 +89,13 @@
             <div class="col-12 col-lg-12 placeholder">
               <svg id="main-chart" width="960" height="500"></svg>
               <br><br>
+              <div id="dataUploadWrapper">
+                <label class="btn btn-primary btn-file">
+                  Upload log file<input id="dataUpload" type="file" onchange="uploadFile()" style="display: none;">
+                </label>
+                <i class="fa fa-spinner fa-spin" style="font-size: 50px;"></i>
+              </div>
+              <br>
               <button onclick="updateTable()">Show visible data in table</button>
             </div>
           </section>
@@ -89,9 +104,6 @@
             <table id="data_table" class="table table-striped">
               <thead>
                 <tr>
-                  <!-- <th>Timestamp</th>
-                  <th>Action</th>
-                  <th>Size</th> -->
                 </tr>
               </thead>
             </table>
@@ -155,12 +167,47 @@
           // due to limitations of the Javascript Date type,
           // precision is in milliseconds (not microseconds)
           var parseDate = d3.timeParse("%H:%M:%S.%f%Z");
+          $(document).ready(function() {
+            var loadingIcon = document.querySelector("#dataUploadWrapper .fa-spinner");
+            $("#dataUploadWrapper .fa-spinner").hide();
+            // loadingIcon.style.display = "none";
+          })
     </script>
     <script>
       var psv = d3.dsvFormat(" ");
       var logData;
 
-      $.get("data.log", function (data) {
+      function uploadFile() {
+        var uploadElem = document.getElementById("dataUpload");
+        var uploadButton = document.querySelector("#dataUploadWrapper label");
+        var loadingIcon = document.querySelector("#dataUploadWrapper .fa-spinner");
+
+        // uploadButton.style.display = "none";
+        // loadingIcon.style.display = "inline";
+
+        if ('files' in uploadElem) {
+          if (uploadElem.files.length != 1) {
+            alert("Please select only 1 file");
+          } else {
+            var file = uploadElem.files[0];
+            var fileReader = new FileReader();
+            fileReader.readAsText(file);
+            $("#dataUploadWrapper .fa-spinner").show();
+              $("#dataUploadWrapper label").hide();
+            fileReader.onload = function() {
+              // loadingIcon.style.display = "none";
+              // uploadButton.style.display = "";
+              $("#dataUploadWrapper label").show();
+            $("#dataUploadWrapper .fa-spinner").hide();
+              document.querySelector("#dataUploadWrapper").style.top = "0px";
+              var rawData = fileReader.result;
+              visualizeData(rawData);
+            }
+          }
+        }
+      }
+
+      function visualizeData(data) {
         // add column names to top of log
         if (appendColumnNames) {
           data = columns.join(" ") + "\n" + data;
@@ -180,6 +227,9 @@
 
 
 
+        // if (table) {
+        //   table.destroy()
+        // }
         initializeTable("data_table");
         table = $('#data_table').DataTable( {
           data: logData,
@@ -193,6 +243,6 @@
           ]
         });
         draw_chart(JSON.parse(JSON.stringify(logData)), "main-chart", "Timestamp", "Size", "Action", parseDate, isError, updateTable);
-      });
+      }
     </script>
 </body></html>
