@@ -61,8 +61,9 @@ function draw_chart(data, svgID, timeProperty, valueProperty, eventProperty, par
         dataNest.push(eventData);
     }
 
-    var svg = d3.select("#" + svgID),
-        margin = { top: 20, right: 100, bottom: 110, left: 50 },
+    var svg = d3.select("#" + svgID);
+        svg.node().innerHTML = "";
+    var margin = { top: 20, right: 100, bottom: 110, left: 50 },
         margin2 = { top: 430, right: 100, bottom: 30, left: 50 },
         width = +svg.attr("width") - margin.left - margin.right,
         height = +svg.attr("height") - margin.top - margin.bottom,

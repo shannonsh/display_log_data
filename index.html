@@ -13,37 +13,11 @@
 
     <!-- Custom styles for this template -->
     <link href="css/dashboard.css" rel="stylesheet">
-<style>#content > #right > .dose > .dosesingle,
-#content > #center > .dose > .dosesingle
-{display:none !important;}</style></head>
+    <style>#content > #right > .dose > .dosesingle,
+    #content > #center > .dose > .dosesingle
+    {display:none !important;}</style></head>
+    <link href="css/styles.css" rel="stylesheet">
 
-  <style>
-    .container-fluid {
-      background-color: #ecf0f5;
-    }
-    .sidebar { 
-      background-color: #333 !important;
-      color: white;
-    }
-    .navbar { 
-      background-color: #367fa9 !important;
-    }
-
-
-.zoom {
-  cursor: move;
-  fill: none;
-  pointer-events: all;
-}
-
-    #dataUploadWrapper {
-      position: relative;
-      top: -300px;
-    }
-     .fa-spin {
-       /* display: none; */
-     }
-  </style>
 
   <body>
     <nav class="navbar navbar-expand-md navbar-dark fixed-top bg-dark">
@@ -126,8 +100,9 @@
     <script src="js/line-chart.js"></script>
 
     <script>
-      var appendColumnNames = true;
-      var errorNums = [-1];
+      var appendColumnNames = true; // false if log file already has column names
+      var delimiter = " "; // delimiter in log file
+
       var columns = ["Timestamp", "Action", "Size"];
       // add appropriate columns to table before drawing it
       function initializeTable(table_id) {
@@ -140,27 +115,28 @@
       }
 
       var table;
-        var lastRange = "";
-  function updateTable() {
-          var range = document.querySelector("svg").getAttribute("data-range");
-            if (lastRange != range) {
-              lastRange = range;
-              range = JSON.parse(range);
-              for (var i = 0; i < range.length; i++) {
-                range[i] = new Date(range[i]);
-              }
+      var lastRange = "";
+      // displays currently viewed data in graph in table
+      function updateTable() {
+        var range = document.querySelector("svg").getAttribute("data-range");
+          if (lastRange != range) {
+            lastRange = range;
+            range = JSON.parse(range);
+            for (var i = 0; i < range.length; i++) {
+              range[i] = new Date(range[i]);
             }
-            var filterProperty = "Timestamp";
-            var searchFunction = function(d) { return parseDate(d[filterProperty]).getTime(); };
-            var bisector = d3.bisector(searchFunction);
-            // var startElem = binarySearch(logData, range[0], searchFunction);
-            // var endElem = binarySearch(logData, range[1], searchFunction);
-            var newData = logData.slice(bisector.left(logData, range[0]), 
-              bisector.right(logData, range[1]));
-            table.clear();
-            table.rows.add(newData);
-            table.draw();
-        }
+          }
+          var filterProperty = "Timestamp";
+          var searchFunction = function(d) { return parseDate(d[filterProperty]).getTime(); };
+          var bisector = d3.bisector(searchFunction);
+          // var startElem = binarySearch(logData, range[0], searchFunction);
+          // var endElem = binarySearch(logData, range[1], searchFunction);
+          var newData = logData.slice(bisector.left(logData, range[0]), 
+            bisector.right(logData, range[1]));
+          table.clear();
+          table.rows.add(newData);
+          table.draw();
+      }
     </script>
     <script>
         // parse time stamps into date
@@ -174,9 +150,45 @@
           })
     </script>
     <script>
-      var psv = d3.dsvFormat(" ");
+      var psv = d3.dsvFormat(delimiter);
       var logData;
 
+      function visualizeData(data) {
+        // add column names to top of log
+        if (appendColumnNames) {
+          data = columns.join(" ") + "\n" + data;
+        }
+
+
+        logData = psv.parse(data);
+        logData.sort(function(a, b) {
+          return parseDate(a) - parseDate(b);
+        });
+        
+
+        function isError(dataPoint) {
+              return isNaN(dataPoint["Size"]) || dataPoint["Size"] < 0;
+        }
+        
+        initializeTable("data_table");
+        if (table) {
+          table.destroy();
+        }
+        table = $('#data_table').DataTable( {
+          data: logData,
+          "columnDefs": [
+              { "type": "num", "targets": 2 }
+          ],
+          columns: [
+            {data: "Timestamp"},
+            {data: "Action"},
+            {data: "Size"}
+          ]
+        });
+        draw_chart(JSON.parse(JSON.stringify(logData)), "main-chart", "Timestamp", "Size", "Action", parseDate, isError, updateTable);
+      }
+    </script>
+    <script>
       function uploadFile() {
         var uploadElem = document.getElementById("dataUpload");
         var uploadButton = document.querySelector("#dataUploadWrapper label");
@@ -205,44 +217,6 @@
             }
           }
         }
-      }
-
-      function visualizeData(data) {
-        // add column names to top of log
-        if (appendColumnNames) {
-          data = columns.join(" ") + "\n" + data;
-        }
-
-
-        logData = psv.parse(data);
-        logData.sort(function(a, b) {
-          return parseDate(a) - parseDate(b);
-        });
-        
-
-        function isError(dataPoint) {
-              return isNaN(dataPoint["Size"]) || dataPoint["Size"] < 0;
-        }
-        
-
-
-
-        // if (table) {
-        //   table.destroy()
-        // }
-        initializeTable("data_table");
-        table = $('#data_table').DataTable( {
-          data: logData,
-          "columnDefs": [
-              { "type": "num", "targets": 2 }
-          ],
-          columns: [
-            {data: "Timestamp"},
-            {data: "Action"},
-            {data: "Size"}
-          ]
-        });
-        draw_chart(JSON.parse(JSON.stringify(logData)), "main-chart", "Timestamp", "Size", "Action", parseDate, isError, updateTable);
       }
     </script>
 </body></html>
