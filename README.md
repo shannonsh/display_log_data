@@ -1,5 +1,5 @@
 # display_log_data
-Displays log data based on size and event
+Displays log data based on size and event. Demo [here](https://shannonsh.github.io/display_log_data/index.html), example log file downloadable [here](https://raw.githubusercontent.com/shannonsh/display_log_data/master/data.log)
 
 ## Features
 #### Graph
@@ -13,3 +13,8 @@ Displays log data based on size and event
 #### Table
 - Sort by column
 - Search all rows
+
+## Limitations
+- first 3 columns must be \[time\] \[event\] \[number\]
+
+\* incomplete list
